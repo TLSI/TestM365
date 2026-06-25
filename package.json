@@ -81,6 +81,7 @@
     "@fullcalendar/list": "^6.1.20",
     "@fullcalendar/timegrid": "^6.1.20",
     "@microsoft/microsoft-graph-client": "^3.0.7",
+    "@nestjs-modules/ioredis": "^2.2.1",
     "@nestjs/bull": "^11.0.2",
     "@nestjs/cache-manager": "^3.1.0",
     "@nestjs/common": "^11.0.0",

@@ -1,0 +1,249 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users ───────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  password     String
+  role         Role     @default(ADMIN)
+  isActive     Boolean  @default(true)
+
+  microsoftConnection MicrosoftConnection?
+  refreshTokens       RefreshToken[]
+  calendarEvents      CalendarEvent[]
+  emailRecords        EmailRecord[]
+  auditLogs           AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  CLIENT
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ─── Microsoft 365 Connection ─────────────────────────────────────────────────
+
+model MicrosoftConnection {
+  id              String           @id @default(cuid())
+  userId          String           @unique
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  microsoftUserId String
+  email           String
+
+  // Tokens stored AES-256 encrypted
+  accessToken     String           @db.Text
+  refreshToken    String           @db.Text
+  tokenExpiresAt  DateTime
+
+  scopes          String[]
+
+  // Per-user sync preferences
+  syncCalendar    Boolean          @default(true)
+  syncMail        Boolean          @default(true)
+  syncDocuments   Boolean          @default(true)
+
+  // Delta sync tokens (stored for incremental sync)
+  calendarDeltaLink String?        @db.Text
+  mailDeltaLink     String?        @db.Text
+
+  lastSyncAt      DateTime?
+  status          ConnectionStatus @default(ACTIVE)
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@map("microsoft_connections")
+}
+
+enum ConnectionStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+  ERROR
+}
+
+// ─── Simulated Clients (for SharePoint testing) ───────────────────────────────
+
+model Client {
+  id   String @id @default(cuid())
+  name String
+  email String @unique
+  company String?
+
+  // SharePoint references (populated when SP structure is created)
+  sharepointSiteId  String?
+  sharepointDriveId String?
+
+  documents    Document[]
+  emailRecords EmailRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("clients")
+}
+
+// ─── Calendar ─────────────────────────────────────────────────────────────────
+
+model CalendarEvent {
+  id          String      @id @default(cuid())
+  externalId  String?     @unique   // Outlook event ID (Graph API)
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?     @db.Text
+  startTime   DateTime
+  endTime     DateTime
+  location    String?
+  allDay      Boolean     @default(false)
+
+  isOnline    Boolean     @default(false)
+  meetingUrl  String?     // Teams join URL
+
+  attendees   Json?       // Array of { email, name, status }
+
+  source      EventSource @default(PLATFORM)
+  synced      Boolean     @default(false)
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([startTime])
+  @@map("calendar_events")
+}
+
+enum EventSource {
+  PLATFORM  // Created in this app
+  OUTLOOK   // Imported from Outlook
+}
+
+// ─── Email ────────────────────────────────────────────────────────────────────
+
+model EmailRecord {
+  id          String         @id @default(cuid())
+  externalId  String?        @unique  // Graph API message ID
+
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  clientId    String?
+  client      Client?        @relation(fields: [clientId], references: [id])
+
+  direction   EmailDirection
+  from        String
+  to          String[]
+  cc          String[]       @default([])
+  subject     String
+  bodyPreview String?        @db.Text
+
+  hasAttachments Boolean     @default(false)
+
+  sentAt      DateTime
+  linkedAt    DateTime       @default(now())
+
+  createdAt   DateTime       @default(now())
+
+  @@index([userId])
+  @@index([clientId])
+  @@map("email_records")
+}
+
+enum EmailDirection {
+  INBOUND
+  OUTBOUND
+}
+
+// ─── Documents / SharePoint ───────────────────────────────────────────────────
+
+model Document {
+  id       String  @id @default(cuid())
+  name     String
+  mimeType String?
+  size     Int?
+
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id])
+
+  // SharePoint Graph API references
+  spItemId  String? // DriveItem ID
+  spWebUrl  String? // Internal SharePoint URL (not exposed to clients)
+  spDriveId String? // Drive ID
+
+  // Folder path inside the drive (e.g. "LOPD/Contratos")
+  folderPath String?
+
+  uploadedByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@map("documents")
+}
+
+// ─── Audit Log ────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id       String  @id @default(cuid())
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id])
+
+  action   String  // e.g. "calendar.create", "mail.send", "document.upload"
+  resource String  // e.g. "CalendarEvent", "EmailRecord", "Document"
+  resourceId String?
+  details  Json?
+
+  ip       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+// ─── Graph Webhook Subscriptions ─────────────────────────────────────────────
+
+model GraphSubscription {
+  id             String   @id @default(cuid())
+  userId         String
+  subscriptionId String   @unique  // ID returned by Graph API
+  resource       String   // e.g. "/me/events", "/me/messages"
+  changeTypes    String[] // ["created", "updated", "deleted"]
+  expiresAt      DateTime
+  clientState    String   // Secret to validate incoming notifications
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("graph_subscriptions")
+}
