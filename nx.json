@@ -18,6 +18,11 @@
     "@angular/build:unit-test": {
       "cache": true,
       "inputs": ["default", "^default"]
+    },
+    "@nx/js:tsc": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["default", "^default"]
     }
   },
   "plugins": [
@@ -51,7 +56,8 @@
       "plugin": "@nx/jest/plugin",
       "options": {
         "targetName": "test"
-      }
+      },
+      "exclude": ["apps/api-e2e/**/*"]
     }
   ],
   "ignoredGlobs": [".claude/**"],
@@ -61,6 +67,7 @@
       "e2eTestRunner": "cypress",
       "linter": "eslint",
       "style": "css",
+      "unitTestRunner": "vitest-angular",
       "bundler": "esbuild",
       "standalone": true
     },
