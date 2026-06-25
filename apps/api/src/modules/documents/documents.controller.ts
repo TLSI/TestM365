@@ -8,6 +8,13 @@ import { Response } from 'express';
 import { DocumentsService } from './documents.service';
 import { CurrentUser } from '../../core/auth/decorators/current-user.decorator';
 
+interface UploadedFile {
+  originalname: string;
+  buffer: Buffer;
+  mimetype: string;
+  size: number;
+}
+
 @ApiTags('Documents')
 @ApiBearerAuth()
 @Controller('documents')
@@ -34,7 +41,7 @@ export class DocumentsController {
   async upload(
     @Param('clientId') clientId: string,
     @CurrentUser() user: { id: string },
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: UploadedFile,
     @Query('folder') folder = '',
   ) {
     return this.documentsService.uploadDocument(clientId, user.id, file.originalname, file.buffer, folder);

@@ -9,7 +9,7 @@ import { AuditLogService } from './audit-log.service';
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
-    private readonly auditLog: AuditLogService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   @ApiOperation({ summary: 'List all users with M365 connection status' })
@@ -26,7 +26,7 @@ export class UsersController {
 
   @ApiOperation({ summary: 'Get audit log' })
   @Get('audit/log')
-  auditLog() {
-    return this.auditLog.findAll();
+  getAuditLog() {
+    return this.auditLogService.findAll();
   }
 }

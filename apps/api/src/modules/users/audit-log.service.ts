@@ -15,7 +15,11 @@ export class AuditLogService {
   constructor(private readonly prisma: PrismaService) {}
 
   async log(entry: AuditLogEntry) {
-    return this.prisma.auditLog.create({ data: entry });
+    const { userId, ...rest } = entry;
+    return this.prisma.auditLog.create({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: { ...rest, ...(userId ? { userId } : {}) } as any,
+    });
   }
 
   async findAll(limit = 100) {

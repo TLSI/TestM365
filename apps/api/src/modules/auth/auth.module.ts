@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { MicrosoftAuthController } from './microsoft-auth.controller';
 import { MicrosoftAuthService } from './microsoft-auth.service';
 import { JwtStrategy } from '../../core/auth/strategies/jwt.strategy';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -18,9 +19,10 @@ import { JwtStrategy } from '../../core/auth/strategies/jwt.strategy';
         signOptions: { expiresIn: config.get('JWT_EXPIRES_IN', '15m') },
       }),
     }),
+    UsersModule,
   ],
   controllers: [AuthController, MicrosoftAuthController],
   providers: [AuthService, MicrosoftAuthService, JwtStrategy],
-  exports: [AuthService, JwtModule],
+  exports: [AuthService, MicrosoftAuthService, JwtModule],
 })
 export class AuthModule {}
