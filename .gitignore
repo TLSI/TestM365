@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production builds
+dist/
+out-tsc/
+.angular/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Nx cache
+.nx/cache
+.nx/workspace-data
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Prisma
+apps/api/prisma/migrations/
+
+# Test coverage
+coverage/
