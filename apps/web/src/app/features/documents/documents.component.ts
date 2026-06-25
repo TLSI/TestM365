@@ -5,7 +5,6 @@ import { HttpClient } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { CardModule } from 'primeng/card';
 import { ButtonModule } from 'primeng/button';
-import { TableModule } from 'primeng/table';
 import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
 import { ToastModule } from 'primeng/toast';
@@ -14,9 +13,17 @@ import { InputTextModule } from 'primeng/inputtext';
 import { MessageService } from 'primeng/api';
 import { environment } from '../../../environments/environment';
 
+interface SpDocument {
+  id: string;
+  name: string;
+  size?: number;
+  file?: { mimeType: string };
+  mimeType?: string;
+}
+
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, CardModule, ButtonModule, TableModule, DialogModule,
+  imports: [CommonModule, FormsModule, CardModule, ButtonModule, DialogModule,
     SelectModule, ToastModule, FileUploadModule, InputTextModule],
   providers: [MessageService],
   template: `
@@ -27,7 +34,6 @@ import { environment } from '../../../environments/environment';
         <p class="text-gray-500 mt-1">FORLOPD como proxy — el cliente nunca ve SharePoint</p>
       </div>
 
-      <!-- Client selector -->
       <div class="flex items-end gap-4 mb-6">
         <div class="flex-1 max-w-sm">
           <label class="text-sm font-medium text-gray-700">Cliente</label>
@@ -47,10 +53,8 @@ import { environment } from '../../../environments/environment';
           [disabled]="!selectedClientId" [loading]="loadingDocs()" (onClick)="loadDocs()" />
       </div>
 
-      <!-- Docs table -->
       <p-card>
         <ng-template pTemplate="content">
-          <!-- Upload -->
           @if (selectedClientId) {
             <div class="mb-4 flex items-center gap-3">
               <p-fileupload
@@ -64,37 +68,43 @@ import { environment } from '../../../environments/environment';
             </div>
           }
 
-          <p-table [value]="documents()" [loading]="loadingDocs()" styleClass="p-datatable-sm">
-            <ng-template pTemplate="header">
-              <tr>
-                <th>Nombre</th>
-                <th>Tamaño</th>
-                <th>Tipo</th>
-                <th>Acciones</th>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-doc>
-              <tr>
-                <td class="font-medium">{{ doc.name }}</td>
-                <td class="text-xs text-gray-500">{{ doc.size ? (doc.size / 1024 | number:'1.0-0') + ' KB' : '—' }}</td>
-                <td class="text-xs">{{ doc.file?.mimeType ?? doc.mimeType ?? '—' }}</td>
-                <td>
-                  <div class="flex gap-2">
-                    <p-button label="Preview" size="small" [text]="true" icon="pi pi-eye" (onClick)="previewDoc(doc)" />
-                    <p-button label="Editar" size="small" severity="secondary" [text]="true" icon="pi pi-pencil" (onClick)="editDoc(doc)" />
-                    <p-button label="Descargar" size="small" severity="success" [text]="true" icon="pi pi-download" (onClick)="downloadDoc(doc)" />
-                  </div>
-                </td>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="emptymessage">
-              <tr><td colspan="4" class="text-center text-gray-400 py-8">Selecciona un cliente y carga documentos</td></tr>
-            </ng-template>
-          </p-table>
+          @if (loadingDocs()) {
+            <div class="text-center py-8 text-gray-400"><i class="pi pi-spinner pi-spin text-2xl"></i></div>
+          } @else if (documents().length === 0) {
+            <p class="text-center text-gray-400 py-8">Selecciona un cliente y carga documentos</p>
+          } @else {
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
+                    <th class="pb-3 pr-4 font-medium">Nombre</th>
+                    <th class="pb-3 pr-4 font-medium">Tamaño</th>
+                    <th class="pb-3 pr-4 font-medium">Tipo</th>
+                    <th class="pb-3 font-medium">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (doc of documents(); track doc.id) {
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                      <td class="py-3 pr-4 font-medium">{{ doc.name }}</td>
+                      <td class="py-3 pr-4 text-xs text-gray-500">{{ doc.size ? (doc.size / 1024 | number:'1.0-0') + ' KB' : '—' }}</td>
+                      <td class="py-3 pr-4 text-xs text-gray-500">{{ doc.file?.mimeType ?? doc.mimeType ?? '—' }}</td>
+                      <td class="py-3">
+                        <div class="flex gap-1">
+                          <p-button label="Preview" size="small" [text]="true" icon="pi pi-eye" (onClick)="previewDoc(doc)" />
+                          <p-button label="Editar" size="small" severity="secondary" [text]="true" icon="pi pi-pencil" (onClick)="editDoc(doc)" />
+                          <p-button label="Descargar" size="small" severity="success" [text]="true" icon="pi pi-download" (onClick)="downloadDoc(doc)" />
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
         </ng-template>
       </p-card>
 
-      <!-- Preview dialog -->
       <p-dialog header="Vista previa del documento" [(visible)]="showPreview" [style]="{ width: '85vw', height: '80vh' }" [modal]="true">
         @if (previewUrl()) {
           <iframe [src]="previewUrl()!" class="w-full h-full border-0" style="min-height: 60vh;" allow="fullscreen"></iframe>
@@ -109,7 +119,7 @@ export class DocumentsComponent implements OnInit {
   private msg = inject(MessageService);
 
   clients = signal<{ id: string; name: string }[]>([]);
-  documents = signal<unknown[]>([]);
+  documents = signal<SpDocument[]>([]);
   selectedClientId = '';
   uploadFolder = '';
   loadingDocs = signal(false);
@@ -123,14 +133,11 @@ export class DocumentsComponent implements OnInit {
     });
   }
 
-  onClientChange() {
-    this.documents.set([]);
-    if (this.selectedClientId) this.loadDocs();
-  }
+  onClientChange() { this.documents.set([]); if (this.selectedClientId) this.loadDocs(); }
 
   loadDocs() {
     this.loadingDocs.set(true);
-    this.http.get<{ data: unknown[] }>(`${environment.apiUrl}/documents/clients/${this.selectedClientId}`).subscribe({
+    this.http.get<{ data: SpDocument[] }>(`${environment.apiUrl}/documents/clients/${this.selectedClientId}`).subscribe({
       next: ({ data }) => { this.documents.set(data); this.loadingDocs.set(false); },
       error: (e) => { this.msg.add({ severity: 'error', detail: e.error?.message }); this.loadingDocs.set(false); },
     });
@@ -155,31 +162,25 @@ export class DocumentsComponent implements OnInit {
     });
   }
 
-  previewDoc(doc: Record<string, unknown>) {
+  previewDoc(doc: SpDocument) {
     this.http.get<{ data: { previewUrl: string } }>(
-      `${environment.apiUrl}/documents/clients/${this.selectedClientId}/items/${doc['id']}/preview`
+      `${environment.apiUrl}/documents/clients/${this.selectedClientId}/items/${doc.id}/preview`
     ).subscribe({
-      next: ({ data }) => {
-        this.previewUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(data.previewUrl));
-        this.showPreview = true;
-      },
+      next: ({ data }) => { this.previewUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(data.previewUrl)); this.showPreview = true; },
       error: (e) => this.msg.add({ severity: 'error', detail: e.error?.message }),
     });
   }
 
-  editDoc(doc: Record<string, unknown>) {
+  editDoc(doc: SpDocument) {
     this.http.get<{ data: { editUrl: string } }>(
-      `${environment.apiUrl}/documents/clients/${this.selectedClientId}/items/${doc['id']}/edit-link`
+      `${environment.apiUrl}/documents/clients/${this.selectedClientId}/items/${doc.id}/edit-link`
     ).subscribe({
       next: ({ data }) => window.open(data.editUrl, '_blank'),
       error: (e) => this.msg.add({ severity: 'error', detail: e.error?.message }),
     });
   }
 
-  downloadDoc(doc: Record<string, unknown>) {
-    window.open(
-      `${environment.apiUrl}/documents/clients/${this.selectedClientId}/items/${doc['id']}/download`,
-      '_blank',
-    );
+  downloadDoc(doc: SpDocument) {
+    window.open(`${environment.apiUrl}/documents/clients/${this.selectedClientId}/items/${doc.id}/download`, '_blank');
   }
 }

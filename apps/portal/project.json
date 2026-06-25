@@ -19,7 +19,8 @@
             "input": "apps/portal/public"
           }
         ],
-        "styles": ["apps/portal/src/styles.css"]
+        "styles": ["apps/portal/src/styles.css"],
+        "allowedCommonJsDependencies": ["primeng", "primeng/table", "primeng/scroller"]
       },
       "configurations": {
         "production": {

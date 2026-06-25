@@ -10,6 +10,17 @@ import { FormsModule } from '@angular/forms';
 import { MessageModule } from 'primeng/message';
 import { environment } from '../../../environments/environment';
 
+interface M365ConnectionStatus {
+  configured: boolean;
+  connected: boolean;
+  email?: string;
+  status?: string;
+  tokenExpiresAt?: string;
+  syncCalendar?: boolean;
+  syncMail?: boolean;
+  syncDocuments?: boolean;
+}
+
 @Component({
   standalone: true,
   imports: [CommonModule, FormsModule, CardModule, ButtonModule, TagModule, DividerModule, ToggleSwitchModule, MessageModule],
@@ -95,7 +106,7 @@ import { environment } from '../../../environments/environment';
           <div class="grid grid-cols-2 gap-2">
             @for (scope of scopes; track scope.name) {
               <div class="flex items-start gap-2 text-sm">
-                <i class="pi pi-check-circle text-green-500 mt-0.5 flex-shrink-0"></i>
+                <i class="pi pi-check-circle text-green-500 mt-0.5 shrink-0"></i>
                 <div>
                   <span class="font-mono text-xs bg-gray-100 px-1 rounded">{{ scope.name }}</span>
                   <p class="text-gray-500 text-xs">{{ scope.desc }}</p>
@@ -111,7 +122,7 @@ import { environment } from '../../../environments/environment';
 export class MicrosoftComponent implements OnInit {
   private http = inject(HttpClient);
 
-  status = signal<Record<string, unknown> | null>(null);
+  status = signal<M365ConnectionStatus | null>(null);
   loading = signal(false);
   syncCalendar = true;
   syncMail = true;
@@ -127,19 +138,16 @@ export class MicrosoftComponent implements OnInit {
     { name: 'offline_access', desc: 'Refresh tokens' },
   ];
 
-  ngOnInit() {
-    this.loadStatus();
-  }
+  ngOnInit() { this.loadStatus(); }
 
   loadStatus() {
-    this.http.get(`${environment.apiUrl}/auth/microsoft/status`).subscribe({
-      next: (r: Record<string, unknown>) => {
-        const data = (r as { data: Record<string, unknown> }).data;
+    this.http.get<{ data: M365ConnectionStatus }>(`${environment.apiUrl}/auth/microsoft/status`).subscribe({
+      next: ({ data }) => {
         this.status.set(data);
         if (data) {
-          this.syncCalendar = data['syncCalendar'] as boolean ?? true;
-          this.syncMail = data['syncMail'] as boolean ?? true;
-          this.syncDocuments = data['syncDocuments'] as boolean ?? true;
+          this.syncCalendar = data.syncCalendar ?? true;
+          this.syncMail = data.syncMail ?? true;
+          this.syncDocuments = data.syncDocuments ?? true;
         }
       },
     });
@@ -148,9 +156,7 @@ export class MicrosoftComponent implements OnInit {
   connect() {
     this.loading.set(true);
     this.http.get<{ data: { url: string } }>(`${environment.apiUrl}/auth/microsoft/url`).subscribe({
-      next: ({ data }) => {
-        window.location.href = data.url;
-      },
+      next: ({ data }) => { window.location.href = data.url; },
       error: () => this.loading.set(false),
     });
   }

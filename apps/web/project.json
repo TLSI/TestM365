@@ -19,7 +19,8 @@
             "input": "apps/web/public"
           }
         ],
-        "styles": ["apps/web/src/styles.css"]
+        "styles": ["apps/web/src/styles.css"],
+        "allowedCommonJsDependencies": ["primeng", "primeng/table", "primeng/scroller"]
       },
       "configurations": {
         "production": {

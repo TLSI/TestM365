@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { CardModule } from 'primeng/card';
 import { ButtonModule } from 'primeng/button';
-import { TableModule } from 'primeng/table';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { TextareaModule } from 'primeng/textarea';
@@ -15,9 +14,19 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { environment } from '../../../environments/environment';
 
+interface CalendarEvent {
+  id: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  isOnline: boolean;
+  meetingUrl?: string;
+  source: string;
+}
+
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, CardModule, ButtonModule, TableModule, DialogModule,
+  imports: [CommonModule, FormsModule, CardModule, ButtonModule, DialogModule,
     InputTextModule, TextareaModule, DatePickerModule, ToggleSwitchModule, TagModule, ToastModule],
   providers: [MessageService],
   template: `
@@ -36,41 +45,49 @@ import { environment } from '../../../environments/environment';
 
       <p-card>
         <ng-template pTemplate="content">
-          <p-table [value]="events()" [loading]="loading()" [paginator]="true" [rows]="10" styleClass="p-datatable-sm">
-            <ng-template pTemplate="header">
-              <tr>
-                <th>Título</th>
-                <th>Inicio</th>
-                <th>Fin</th>
-                <th>Online</th>
-                <th>Origen</th>
-                <th>Acciones</th>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-event>
-              <tr>
-                <td>{{ event.title }}</td>
-                <td>{{ event.startTime | date:'short' }}</td>
-                <td>{{ event.endTime | date:'short' }}</td>
-                <td>
-                  @if (event.isOnline) {
-                    <a [href]="event.meetingUrl" target="_blank" class="text-blue-600 text-xs">Teams link</a>
-                  } @else { — }
-                </td>
-                <td><p-tag [value]="event.source" [severity]="event.source === 'OUTLOOK' ? 'info' : 'success'" /></td>
-                <td>
-                  <p-button icon="pi pi-trash" severity="danger" size="small" [text]="true" (onClick)="deleteEvent(event.id)" />
-                </td>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="emptymessage">
-              <tr><td colspan="6" class="text-center text-gray-400 py-8">Sin eventos. Pulsa "Sincronizar desde Outlook".</td></tr>
-            </ng-template>
-          </p-table>
+          @if (loading()) {
+            <div class="text-center py-8 text-gray-400"><i class="pi pi-spinner pi-spin text-2xl"></i></div>
+          } @else if (events().length === 0) {
+            <p class="text-center text-gray-400 py-8">Sin eventos. Pulsa "Sincronizar desde Outlook".</p>
+          } @else {
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
+                    <th class="pb-3 pr-4 font-medium">Título</th>
+                    <th class="pb-3 pr-4 font-medium">Inicio</th>
+                    <th class="pb-3 pr-4 font-medium">Fin</th>
+                    <th class="pb-3 pr-4 font-medium">Online</th>
+                    <th class="pb-3 pr-4 font-medium">Origen</th>
+                    <th class="pb-3 font-medium"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (event of events(); track event.id) {
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                      <td class="py-3 pr-4 font-medium">{{ event.title }}</td>
+                      <td class="py-3 pr-4 text-gray-600">{{ event.startTime | date:'short' }}</td>
+                      <td class="py-3 pr-4 text-gray-600">{{ event.endTime | date:'short' }}</td>
+                      <td class="py-3 pr-4">
+                        @if (event.isOnline && event.meetingUrl) {
+                          <a [href]="event.meetingUrl" target="_blank" class="text-blue-600 text-xs">Teams link</a>
+                        } @else { <span class="text-gray-400">—</span> }
+                      </td>
+                      <td class="py-3 pr-4">
+                        <p-tag [value]="event.source" [severity]="event.source === 'OUTLOOK' ? 'info' : 'success'" />
+                      </td>
+                      <td class="py-3">
+                        <p-button icon="pi pi-trash" severity="danger" size="small" [text]="true" (onClick)="deleteEvent(event.id)" />
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
         </ng-template>
       </p-card>
 
-      <!-- Create event dialog -->
       <p-dialog header="Nuevo evento" [(visible)]="showDialog" [style]="{ width: '500px' }" [modal]="true">
         <div class="space-y-4">
           <div>
@@ -96,7 +113,7 @@ import { environment } from '../../../environments/environment';
             <label class="text-sm">Reunión online (genera link de Teams)</label>
           </div>
           <div>
-            <label class="text-sm font-medium">Asistentes (emails separados por coma)</label>
+            <label class="text-sm font-medium">Asistentes (emails, separados por coma)</label>
             <input pInputText [(ngModel)]="attendeesStr" class="w-full mt-1" placeholder="a@mail.com, b@mail.com" />
           </div>
         </div>
@@ -112,20 +129,19 @@ export class CalendarComponent implements OnInit {
   private http = inject(HttpClient);
   private msg = inject(MessageService);
 
-  events = signal<unknown[]>([]);
+  events = signal<CalendarEvent[]>([]);
   loading = signal(false);
   syncing = signal(false);
   creating = signal(false);
   showDialog = false;
   attendeesStr = '';
-
   newEvent = { title: '', startDate: new Date(), endDate: new Date(), location: '', isOnline: false };
 
   ngOnInit() { this.loadEvents(); }
 
   loadEvents() {
     this.loading.set(true);
-    this.http.get<{ data: unknown[] }>(`${environment.apiUrl}/calendar/events`).subscribe({
+    this.http.get<{ data: CalendarEvent[] }>(`${environment.apiUrl}/calendar/events`).subscribe({
       next: ({ data }) => { this.events.set(data); this.loading.set(false); },
       error: () => this.loading.set(false),
     });
@@ -139,7 +155,7 @@ export class CalendarComponent implements OnInit {
         this.syncing.set(false);
         this.loadEvents();
       },
-      error: (e) => { this.msg.add({ severity: 'error', summary: 'Error', detail: e.error?.message }); this.syncing.set(false); },
+      error: (e) => { this.msg.add({ severity: 'error', detail: e.error?.message }); this.syncing.set(false); },
     });
   }
 
@@ -154,13 +170,8 @@ export class CalendarComponent implements OnInit {
       attendees: this.attendeesStr ? this.attendeesStr.split(',').map((s) => s.trim()) : [],
     };
     this.http.post(`${environment.apiUrl}/calendar/events`, payload).subscribe({
-      next: () => {
-        this.msg.add({ severity: 'success', summary: 'Evento creado', detail: 'Sincronizado con Outlook' });
-        this.showDialog = false;
-        this.creating.set(false);
-        this.loadEvents();
-      },
-      error: (e) => { this.msg.add({ severity: 'error', summary: 'Error', detail: e.error?.message }); this.creating.set(false); },
+      next: () => { this.msg.add({ severity: 'success', summary: 'Evento creado' }); this.showDialog = false; this.creating.set(false); this.loadEvents(); },
+      error: (e) => { this.msg.add({ severity: 'error', detail: e.error?.message }); this.creating.set(false); },
     });
   }
 

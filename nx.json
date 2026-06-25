@@ -80,5 +80,6 @@
       "style": "css",
       "standalone": true
     }
-  }
+  },
+  "analytics": false
 }

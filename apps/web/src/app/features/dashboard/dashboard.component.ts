@@ -7,6 +7,14 @@ import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
 import { environment } from '../../../environments/environment';
 
+interface M365Status {
+  configured: boolean;
+  connected: boolean;
+  email?: string;
+  lastSyncAt?: string;
+  status?: string;
+}
+
 @Component({
   standalone: true,
   imports: [CommonModule, CardModule, ButtonModule, TagModule, RouterLink],
@@ -93,7 +101,7 @@ import { environment } from '../../../environments/environment';
 })
 export class DashboardComponent implements OnInit {
   private http = inject(HttpClient);
-  msStatus = signal<Record<string, unknown> | null>(null);
+  msStatus = signal<M365Status | null>(null);
 
   panels = [
     { title: 'Microsoft 365', icon: 'pi-microsoft', bg: 'bg-blue-600', route: '/microsoft', desc: 'Conectar / desconectar cuenta Azure AD. Ver estado y tokens.' },
@@ -104,8 +112,8 @@ export class DashboardComponent implements OnInit {
   ];
 
   ngOnInit() {
-    this.http.get(`${environment.apiUrl}/auth/microsoft/status`).subscribe({
-      next: (r: Record<string, unknown>) => this.msStatus.set((r as { data: Record<string, unknown> }).data),
+    this.http.get<{ data: M365Status }>(`${environment.apiUrl}/auth/microsoft/status`).subscribe({
+      next: ({ data }) => this.msStatus.set(data),
       error: () => this.msStatus.set(null),
     });
   }
