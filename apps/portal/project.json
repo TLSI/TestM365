@@ -17,9 +17,18 @@
           {
             "glob": "**/*",
             "input": "apps/portal/public"
+          },
+          {
+            "glob": "**/*",
+            "input": "apps/portal/src/assets",
+            "output": "assets"
           }
         ],
-        "styles": ["apps/portal/src/styles.css"],
+        "styles": [
+          "apps/portal/src/styles.css",
+          "apps/portal/src/assets/layout/layout.scss",
+          "apps/portal/src/assets/tailwind.css"
+        ],
         "allowedCommonJsDependencies": ["primeng", "primeng/table", "primeng/scroller"]
       },
       "configurations": {
