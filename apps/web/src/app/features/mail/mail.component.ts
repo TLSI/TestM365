@@ -18,7 +18,7 @@ interface InboxMessage {
   subject: string;
   bodyPreview: string;
   receivedDateTime: string;
-  from: { emailAddress: { address: string } };
+  from?: { emailAddress: { address: string } };
 }
 
 interface EmailRecord {
@@ -73,7 +73,7 @@ interface EmailRecord {
                   <tbody>
                     @for (msg of inbox(); track msg.id) {
                       <tr class="border-b border-gray-100 hover:bg-gray-50">
-                        <td class="py-3 pr-4 text-xs text-gray-600">{{ msg.from?.emailAddress?.address }}</td>
+                        <td class="py-3 pr-4 text-xs text-gray-600">{{ msg.from ? msg.from.emailAddress.address : '' }}</td>
                         <td class="py-3 pr-4 font-medium max-w-xs truncate">{{ msg.subject }}</td>
                         <td class="py-3 pr-4 text-xs text-gray-400 max-w-xs truncate">{{ msg.bodyPreview }}</td>
                         <td class="py-3 pr-4 text-xs">{{ msg.receivedDateTime | date:'short' }}</td>
