@@ -1,8 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { MicrosoftAuthService } from '../auth/microsoft-auth.service';
 import { AuditLogService } from '../users/audit-log.service';
 import { SendTeamsNotificationDto } from './dto/send-teams-notification.dto';
-import axios from 'axios';
 
 @Injectable()
 export class TeamsService {
@@ -13,33 +12,47 @@ export class TeamsService {
     private readonly auditLog: AuditLogService,
   ) {}
 
-  /** Send a notification to a Teams channel via an incoming webhook URL */
+  /** Send a notification to a Teams channel via Graph API.
+   *  Uses the user's delegated token (ChannelMessage.Send delegated scope). */
   async sendChannelNotification(userId: string, dto: SendTeamsNotificationDto) {
-    const payload = {
-      '@type': 'MessageCard',
-      '@context': 'http://schema.org/extensions',
-      themeColor: '0076D7',
-      summary: dto.title,
-      sections: [
-        {
-          activityTitle: dto.title,
-          activitySubtitle: dto.subtitle ?? 'TestM365 Platform',
-          activityText: dto.body,
-          facts: (dto.facts ?? []).map((f) => ({ name: f.name, value: f.value })),
-        },
-      ],
-    };
+    const { teamId, channelId } = this.parseChannelUrl(dto.channelUrl);
+    const appClient = await this.msAuth.getClientForUser(userId);
 
-    await axios.post(dto.webhookUrl, payload);
+    let html = `<h2>${dto.title}</h2>`;
+    if (dto.subtitle) html += `<p><em>${dto.subtitle}</em></p>`;
+    html += `<p>${dto.body}</p>`;
+    if (dto.facts?.length) {
+      html += '<ul>' + dto.facts.map((f) => `<li><strong>${f.name}:</strong> ${f.value}</li>`).join('') + '</ul>';
+    }
+
+    await appClient.api(`/teams/${teamId}/channels/${channelId}/messages`).post({
+      body: { contentType: 'html', content: html },
+    });
 
     await this.auditLog.log({
       userId,
       action: 'teams.notification_sent',
       resource: 'TeamsChannel',
-      details: { title: dto.title, webhookUrl: dto.webhookUrl },
+      details: { title: dto.title, teamId, channelId },
     });
 
     return { sent: true };
+  }
+
+  private parseChannelUrl(url: string): { teamId: string; channelId: string } {
+    try {
+      const parsed = new URL(url);
+      const teamId = parsed.searchParams.get('groupId');
+      const parts = parsed.pathname.split('/');
+      const idx = parts.indexOf('channel');
+      const channelId = idx !== -1 ? decodeURIComponent(parts[idx + 1]) : null;
+      if (!teamId || !channelId) throw new Error();
+      return { teamId, channelId };
+    } catch {
+      throw new BadRequestException(
+        'URL de canal no válida. Copia el enlace desde Teams → canal → "Obtener vínculo al canal".',
+      );
+    }
   }
 
   /** Create a Teams online meeting via Graph API */

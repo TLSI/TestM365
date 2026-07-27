@@ -85,6 +85,9 @@ export class MicrosoftGraphService {
         'Mail.Send',
         'Files.ReadWrite.All',
         'Sites.ReadWrite.All',
+        'ChannelMessage.Send',
+        'OnlineMeetings.ReadWrite',
+        'Team.ReadBasic.All',
       ],
     });
   }
@@ -106,6 +109,9 @@ export class MicrosoftGraphService {
       'Mail.Send',
       'Files.ReadWrite.All',
       'Sites.ReadWrite.All',
+      'ChannelMessage.Send',
+      'OnlineMeetings.ReadWrite',
+      'Team.ReadBasic.All',
     ].join('%20');
 
     return (

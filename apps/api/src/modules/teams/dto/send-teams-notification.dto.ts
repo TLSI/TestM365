@@ -13,9 +13,9 @@ class TeamsFact {
 }
 
 export class SendTeamsNotificationDto {
-  @ApiProperty({ description: 'Incoming webhook URL from Teams channel' })
+  @ApiProperty({ description: 'Teams channel URL (deep link from "Get link to channel")' })
   @IsUrl()
-  webhookUrl: string;
+  channelUrl: string;
 
   @ApiProperty()
   @IsString()

@@ -37,8 +37,8 @@ import { environment } from '../../../environments/environment';
         <ng-template pTemplate="content">
           <div class="space-y-4">
             <div>
-              <label class="text-sm font-medium">Webhook URL del canal *</label>
-              <input pInputText [(ngModel)]="notify.webhookUrl" class="w-full mt-1" placeholder="https://outlook.office.com/webhook/..." />
+              <label class="text-sm font-medium">URL del canal de Teams *</label>
+              <input pInputText [(ngModel)]="notify.channelUrl" class="w-full mt-1" placeholder="https://teams.microsoft.com/l/channel/..." />
             </div>
             <div class="grid grid-cols-2 gap-4">
               <div>
@@ -109,7 +109,7 @@ export class TeamsComponent {
   creatingMeeting = signal(false);
   createdMeeting = signal<Record<string, unknown> | null>(null);
 
-  notify = { webhookUrl: '', title: 'Alerta desde TestM365', subtitle: 'Plataforma de pruebas M365', body: 'Esta es una notificación de prueba enviada desde TestM365.' };
+  notify = { channelUrl: '', title: 'Alerta desde TestM365', subtitle: 'Plataforma de pruebas M365', body: 'Esta es una notificación de prueba enviada desde TestM365.' };
   meeting = { subject: 'Reunión de prueba Teams', startDate: new Date(), endDate: new Date(Date.now() + 3600000) };
 
   sendNotification() {
