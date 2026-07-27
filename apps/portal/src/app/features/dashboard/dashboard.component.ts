@@ -118,13 +118,13 @@ export class DashboardComponent implements OnInit {
   eventCount = signal(0);
 
   ngOnInit() {
-    this.http.get<{ data: unknown[] }>(`${environment.apiUrl}/calendar/events`).subscribe({
+    this.http.get<{ data: Array<{ startTime: string }> }>(`${environment.apiUrl}/calendar/events`).subscribe({
       next: ({ data }) => {
         const now = new Date();
         const in30 = new Date(Date.now() + 30 * 24 * 3600000);
         this.eventCount.set(
-          data.filter((e: Record<string, unknown>) => {
-            const d = new Date(e['startTime'] as string);
+          data.filter((e) => {
+            const d = new Date(e.startTime);
             return d >= now && d <= in30;
           }).length
         );

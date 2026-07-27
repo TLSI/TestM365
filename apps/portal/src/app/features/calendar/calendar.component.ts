@@ -6,6 +6,16 @@ import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
 import { environment } from '../../../environments/environment';
 
+interface CalendarEvent {
+  id: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  source: string;
+  isOnline?: boolean;
+  meetingUrl?: string;
+}
+
 @Component({
   standalone: true,
   imports: [CommonModule, CardModule, ButtonModule, TagModule],
@@ -32,31 +42,31 @@ import { environment } from '../../../environments/environment';
         </div>
       } @else {
         <div class="space-y-3">
-          @for (event of upcoming(); track event['id']) {
+          @for (event of upcoming(); track event.id) {
             <p-card>
               <ng-template pTemplate="content">
                 <div class="flex items-start gap-4">
                   <!-- Date block -->
                   <div class="text-center bg-blue-50 rounded-xl p-3 min-w-16 flex-shrink-0">
-                    <p class="text-2xl font-bold text-blue-600 leading-none">{{ event['startTime'] | date:'d' }}</p>
-                    <p class="text-xs text-blue-500 uppercase font-medium">{{ event['startTime'] | date:'MMM' }}</p>
+                    <p class="text-2xl font-bold text-blue-600 leading-none">{{ event.startTime | date:'d' }}</p>
+                    <p class="text-xs text-blue-500 uppercase font-medium">{{ event.startTime | date:'MMM' }}</p>
                   </div>
 
                   <!-- Details -->
                   <div class="flex-1">
                     <div class="flex items-center gap-2 mb-1">
-                      <h3 class="font-semibold text-gray-900">{{ event['title'] }}</h3>
-                      @if (event['isOnline']) {
+                      <h3 class="font-semibold text-gray-900">{{ event.title }}</h3>
+                      @if (event.isOnline) {
                         <p-tag value="Online" severity="info" />
                       }
-                      <p-tag [value]="event['source']" [severity]="event['source'] === 'OUTLOOK' ? 'success' : 'secondary'" />
+                      <p-tag [value]="event.source" [severity]="event.source === 'OUTLOOK' ? 'success' : 'secondary'" />
                     </div>
                     <p class="text-sm text-gray-500">
                       <i class="pi pi-clock mr-1"></i>
-                      {{ event['startTime'] | date:'HH:mm' }} – {{ event['endTime'] | date:'HH:mm' }}
+                      {{ event.startTime | date:'HH:mm' }} – {{ event.endTime | date:'HH:mm' }}
                     </p>
-                    @if (event['isOnline'] && event['meetingUrl']) {
-                      <a [href]="event['meetingUrl']" target="_blank"
+                    @if (event.isOnline && event.meetingUrl) {
+                      <a [href]="event.meetingUrl" target="_blank"
                         class="inline-flex items-center gap-1 mt-2 text-sm text-blue-600 hover:underline">
                         <i class="pi pi-video"></i> Unirse a la reunión de Teams
                       </a>
@@ -74,11 +84,11 @@ import { environment } from '../../../environments/environment';
         <div class="mt-8">
           <h3 class="text-sm font-medium text-gray-400 mb-3 uppercase tracking-wide">Citas anteriores</h3>
           <div class="space-y-2">
-            @for (event of past().slice(0, 5); track event['id']) {
+            @for (event of past().slice(0, 5); track event.id) {
               <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg opacity-60">
                 <i class="pi pi-calendar-minus text-gray-400"></i>
-                <span class="text-sm text-gray-600">{{ event['title'] }}</span>
-                <span class="text-xs text-gray-400 ml-auto">{{ event['startTime'] | date:'dd/MM/yyyy' }}</span>
+                <span class="text-sm text-gray-600">{{ event.title }}</span>
+                <span class="text-xs text-gray-400 ml-auto">{{ event.startTime | date:'dd/MM/yyyy' }}</span>
               </div>
             }
           </div>
@@ -90,24 +100,24 @@ import { environment } from '../../../environments/environment';
 export class CalendarComponent implements OnInit {
   private http = inject(HttpClient);
 
-  events = signal<Record<string, unknown>[]>([]);
+  events = signal<CalendarEvent[]>([]);
   loading = signal(false);
 
-  upcoming = signal<Record<string, unknown>[]>([]);
-  past = signal<Record<string, unknown>[]>([]);
+  upcoming = signal<CalendarEvent[]>([]);
+  past = signal<CalendarEvent[]>([]);
 
   ngOnInit() { this.load(); }
 
   load() {
     this.loading.set(true);
-    this.http.get<{ data: Record<string, unknown>[] }>(`${environment.apiUrl}/calendar/events`).subscribe({
+    this.http.get<{ data: CalendarEvent[] }>(`${environment.apiUrl}/calendar/events`).subscribe({
       next: ({ data }) => {
         const now = new Date();
         const sorted = [...data].sort((a, b) =>
-          new Date(a['startTime'] as string).getTime() - new Date(b['startTime'] as string).getTime()
+          new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
         );
-        this.upcoming.set(sorted.filter((e) => new Date(e['startTime'] as string) >= now));
-        this.past.set(sorted.filter((e) => new Date(e['startTime'] as string) < now).reverse());
+        this.upcoming.set(sorted.filter((e) => new Date(e.startTime) >= now));
+        this.past.set(sorted.filter((e) => new Date(e.startTime) < now).reverse());
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
