@@ -4,11 +4,18 @@ import { Router } from '@angular/router';
 import { tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 
+interface ClientInfo {
+  id: string;
+  company: string | null;
+  name: string;
+}
+
 interface User {
   id: string;
   email: string;
   name: string;
   role: string;
+  client?: ClientInfo | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -22,6 +29,14 @@ export class AuthService {
   user = this._user.asReadonly();
   isLoggedIn = computed(() => !!this._token());
   token = this._token.asReadonly();
+
+  constructor() {
+    if (this._token()) {
+      this.http.get<User>(`${environment.apiUrl}/auth/me`).pipe(
+        tap(user => this._user.set(user))
+      ).subscribe({ error: () => this.logout() });
+    }
+  }
 
   login(email: string, password: string) {
     return this.http.post<{ data: { accessToken: string; user: User } }>(

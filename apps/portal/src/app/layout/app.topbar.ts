@@ -57,10 +57,14 @@ import { AuthService } from '../core/services/auth.service';
 
             <div class="layout-topbar-menu hidden lg:block">
                 <div class="layout-topbar-menu-content">
-                    <button type="button" class="layout-topbar-action">
-                        <i class="pi pi-user"></i>
-                        <span>Perfil</span>
-                    </button>
+                    @if (authService.user()) {
+                        <div class="flex flex-column align-items-end justify-content-center px-2" style="line-height:1.2">
+                            <span style="font-weight:600; font-size:.875rem">{{ authService.user()!.name }}</span>
+                            @if (authService.user()!.client?.company) {
+                                <span style="font-size:.75rem; opacity:.65">{{ authService.user()!.client!.company }}</span>
+                            }
+                        </div>
+                    }
                     <button type="button" class="layout-topbar-action" (click)="authService.logout()">
                         <i class="pi pi-sign-out"></i>
                         <span>Salir</span>
