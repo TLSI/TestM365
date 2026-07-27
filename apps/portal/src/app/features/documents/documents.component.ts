@@ -15,7 +15,9 @@ interface SpDocument {
   name: string;
   size?: number;
   file?: { mimeType: string };
+  folder?: { childCount: number };
   mimeType?: string;
+  lastModifiedDateTime?: string;
 }
 
 @Component({
@@ -46,6 +48,16 @@ interface SpDocument {
                 <p>No hay documentos disponibles aún</p>
               </div>
             } @else {
+              <!-- Breadcrumb -->
+              @if (currentPath().length > 0) {
+                <nav class="flex items-center gap-1 text-sm mb-4 text-gray-500">
+                  <button class="hover:text-blue-600 font-medium" (click)="navigateToBreadcrumb(-1)">Raíz</button>
+                  @for (segment of currentPath(); track $index) {
+                    <span>/</span>
+                    <button class="hover:text-blue-600" (click)="navigateToBreadcrumb($index + 1)">{{ segment }}</button>
+                  }
+                </nav>
+              }
               <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                   <thead>
@@ -58,21 +70,22 @@ interface SpDocument {
                   </thead>
                   <tbody>
                     @for (doc of documents(); track doc.id) {
-                      <tr class="border-b border-gray-100 hover:bg-gray-50">
+                      <tr class="border-b border-gray-100 hover:bg-gray-50" [class.cursor-pointer]="doc.folder" (click)="doc.folder && navigateToFolder(doc)">
                         <td class="py-3 pr-4">
                           <div class="flex items-center gap-2">
                             <i [class]="getIcon(doc) + ' text-blue-500'"></i>
                             <span class="font-medium">{{ doc.name }}</span>
+                            @if (doc.folder) { <i class="pi pi-angle-right text-gray-400 text-xs"></i> }
                           </div>
                         </td>
-                        <td class="py-3 pr-4 text-xs text-gray-500">{{ doc.file?.mimeType ?? doc.mimeType ?? 'Carpeta' }}</td>
+                        <td class="py-3 pr-4 text-xs text-gray-500">{{ doc.file?.mimeType ?? doc.mimeType ?? (doc.folder ? 'Carpeta' : '—') }}</td>
                         <td class="py-3 pr-4 text-xs text-gray-500">{{ doc.size ? (doc.size / 1024 | number:'1.0-0') + ' KB' : '—' }}</td>
                         <td class="py-3">
                           @if (doc.file) {
                             <div class="flex gap-1">
-                              <p-button label="Ver" size="small" [text]="true" icon="pi pi-eye" (onClick)="preview(doc)" />
-                              <p-button label="Editar" size="small" severity="secondary" [text]="true" icon="pi pi-pencil" (onClick)="edit(doc)" />
-                              <p-button label="Descargar" size="small" severity="success" [text]="true" icon="pi pi-download" (onClick)="download(doc)" />
+                              <p-button label="Ver" size="small" [text]="true" icon="pi pi-eye" (onClick)="preview(doc); $event.stopPropagation()" />
+                              <p-button label="Editar" size="small" severity="secondary" [text]="true" icon="pi pi-pencil" (onClick)="edit(doc); $event.stopPropagation()" />
+                              <p-button label="Descargar" size="small" severity="success" [text]="true" icon="pi pi-download" (onClick)="download(doc); $event.stopPropagation()" />
                             </div>
                           }
                         </td>
@@ -101,6 +114,7 @@ export class DocumentsComponent implements OnInit {
 
   clientId = signal<string | null>(null);
   documents = signal<SpDocument[]>([]);
+  currentPath = signal<string[]>([]);
   loading = signal(false);
   showPreview = false;
   previewUrl = signal<SafeResourceUrl | null>(null);
@@ -115,10 +129,22 @@ export class DocumentsComponent implements OnInit {
     const id = this.clientId();
     if (!id) return;
     this.loading.set(true);
-    this.http.get<{ data: SpDocument[] }>(`${environment.apiUrl}/documents/clients/${id}`).subscribe({
+    const folder = this.currentPath().join('/');
+    const url = `${environment.apiUrl}/documents/clients/${id}${folder ? '?folder=' + encodeURIComponent(folder) : ''}`;
+    this.http.get<{ data: SpDocument[] }>(url).subscribe({
       next: ({ data }) => { this.documents.set(data); this.loading.set(false); },
       error: () => this.loading.set(false),
     });
+  }
+
+  navigateToFolder(doc: SpDocument) {
+    this.currentPath.update(p => [...p, doc.name]);
+    this.load();
+  }
+
+  navigateToBreadcrumb(upToIndex: number) {
+    this.currentPath.update(p => upToIndex < 0 ? [] : p.slice(0, upToIndex));
+    this.load();
   }
 
   preview(doc: SpDocument) {
