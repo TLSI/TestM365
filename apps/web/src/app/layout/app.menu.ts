@@ -38,6 +38,12 @@ export class AppMenu {
                     { label: 'Documentos', icon: 'pi pi-fw pi-file', routerLink: ['/documents'] },
                     { label: 'Teams', icon: 'pi pi-fw pi-comments', routerLink: ['/teams'] }
                 ]
+            },
+            {
+                label: 'Validación',
+                items: [
+                    { label: 'Test Suite M365', icon: 'pi pi-fw pi-play', routerLink: ['/test-suite'] }
+                ]
             }
         ];
     }

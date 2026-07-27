@@ -42,6 +42,11 @@ export const appRoutes: Routes = [
         loadComponent: () =>
           import('./features/teams/teams.component').then((m) => m.TeamsComponent),
       },
+      {
+        path: 'test-suite',
+        loadComponent: () =>
+          import('./features/test-suite/test-suite.component').then((m) => m.TestSuiteComponent),
+      },
     ],
   },
   { path: '**', redirectTo: 'dashboard' },
