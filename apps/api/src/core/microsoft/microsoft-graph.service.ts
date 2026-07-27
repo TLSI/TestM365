@@ -89,8 +89,9 @@ export class MicrosoftGraphService {
     });
   }
 
-  /** Gets the OAuth2 authorization URL to redirect the user to. */
-  getAuthorizationUrl(): string {
+  /** Gets the OAuth2 authorization URL to redirect the user to. `state` round-trips the
+   *  requesting userId through Azure AD so the callback can attribute the tokens. */
+  getAuthorizationUrl(state: string): string {
     const clientId = this.config.get<string>('AZURE_CLIENT_ID');
     const tenantId = this.config.get<string>('AZURE_TENANT_ID');
     const redirectUri = this.config.get<string>('AZURE_REDIRECT_URI');
@@ -113,7 +114,8 @@ export class MicrosoftGraphService {
       `&response_type=code` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
       `&scope=${scopes}` +
-      `&response_mode=query`
+      `&response_mode=query` +
+      `&state=${encodeURIComponent(state)}`
     );
   }
 }

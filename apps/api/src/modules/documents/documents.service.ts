@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Client, ResponseType } from '@microsoft/microsoft-graph-client';
 import { PrismaService } from '../../core/database/prisma.service';
 import { MicrosoftGraphService } from '../../core/microsoft/microsoft-graph.service';
 import { AuditLogService } from '../users/audit-log.service';
@@ -20,6 +21,7 @@ export class DocumentsService {
   /** Creates a SharePoint site for a client and stores the IDs in the DB */
   async createClientSite(clientId: string, userId: string) {
     const client = await this.prisma.client.findUniqueOrThrow({ where: { id: clientId } });
+    const owner = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { email: true } });
     const appClient = await this.graphService.getAppClient();
 
     const tenantDomain = this.config.get<string>('SHAREPOINT_TENANT_DOMAIN');
@@ -27,23 +29,13 @@ export class DocumentsService {
 
     const response = await appClient.api(`/sites/${tenantDomain}:/sites/${siteName}?$select=id,displayName,webUrl`).get().catch(() => null);
 
-    let siteId: string;
-    let driveId: string;
-
-    if (response?.id) {
-      siteId = response.id;
-    } else {
-      const created = await appClient.api('/sites/root/sites').post({
-        displayName: `Cliente - ${client.name}`,
-        name: siteName,
-        description: `Documentos del cliente ${client.name}`,
-      });
-      siteId = created.id;
-    }
+    const siteId: string =
+      response?.id ??
+      (await this.provisionSharePointSite(appClient, tenantDomain, siteName, client.name, owner.email));
 
     // Get the default drive
     const drive = await appClient.api(`/sites/${siteId}/drive`).get();
-    driveId = drive.id;
+    const driveId = drive.id;
 
     // Create standard folder structure
     const folders = ['LOPD', 'Contratos', 'Correspondencia', 'Informes'];
@@ -62,6 +54,72 @@ export class DocumentsService {
     await this.auditLog.log({ userId, action: 'document.site_created', resource: 'Client', resourceId: clientId, details: { siteId } });
 
     return { siteId, driveId, siteName };
+  }
+
+  /** Provisions a new SharePoint site collection.
+   *  Graph's v1.0 `/sites/root/sites` only creates classic sub-webs, not real site collections —
+   *  creating a site collection requires the beta `POST /sites` API (permission `Sites.Create.All`),
+   *  which is asynchronous: it returns 202 with an operation to poll until it succeeds. */
+  private async provisionSharePointSite(
+    appClient: Client,
+    tenantDomain: string,
+    siteName: string,
+    clientName: string,
+    ownerEmail: string,
+  ): Promise<string> {
+    const requestBody = {
+      name: siteName,
+      webUrl: `https://${tenantDomain}/sites/${siteName}`,
+      locale: 'es-ES',
+      shareByEmailEnabled: false,
+      description: `Documentos del cliente ${clientName}`,
+      template: 'sts',
+      // Required when calling with application (app-only) permissions: there's no
+      // signed-in user Graph can default the owner to.
+      ownerIdentityToResolve: { email: ownerEmail },
+    };
+
+    // SharePoint site provisioning occasionally fails transiently (observed 500
+    // "Error happened while site provisioning") — retry a couple of times before giving up.
+    let raw: Response | undefined;
+    let lastError = '';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      raw = (await appClient.api('/sites').version('beta').responseType(ResponseType.RAW).post(requestBody)) as Response;
+      if (raw.status === 202) break;
+      lastError = `HTTP ${raw.status}: ${await raw.text().catch(() => '<sin cuerpo>')}`;
+      if (raw.status < 500) break; // don't retry non-transient errors (bad request, permissions, etc.)
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+
+    if (!raw || raw.status !== 202) {
+      throw new Error(`Fallo creando site de SharePoint tras reintentos: ${lastError}`);
+    }
+
+    const operationId = raw.headers.get('location')?.match(/operationId='([^']+)'/)?.[1];
+    if (!operationId) {
+      throw new Error('SharePoint devolvió 202 pero sin cabecera Location con el ID de operación');
+    }
+
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const op = await appClient
+        .api(`/sites/getOperationStatus(operationId='${operationId}')`)
+        .version('beta')
+        .get();
+
+      if (op.status === 'succeeded') {
+        // resourceId is a bare site GUID here; normalize to the full `hostname,siteId,webId`
+        // form used everywhere else so lookups stay consistent.
+        const site = await appClient.api(`/sites/${op.resourceId}?$select=id`).get();
+        return site.id;
+      }
+      if (op.status === 'failed') {
+        throw new Error(`La creación del site de SharePoint falló: ${JSON.stringify(op)}`);
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+
+    throw new Error('Tiempo de espera agotado creando el site de SharePoint');
   }
 
   // ─── Document Operations ─────────────────────────────────────────────────────

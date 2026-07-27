@@ -33,13 +33,13 @@ export class MicrosoftAuthService {
     private readonly auditLog: AuditLogService,
   ) {}
 
-  getAuthorizationUrl(): string {
+  getAuthorizationUrl(userId: string): string {
     if (!this.graphService.isConfigured) {
       throw new BadRequestException(
         'Microsoft 365 integration not configured. Set AZURE_CLIENT_ID, AZURE_CLIENT_SECRET and AZURE_TENANT_ID.',
       );
     }
-    return this.graphService.getAuthorizationUrl();
+    return this.graphService.getAuthorizationUrl(userId);
   }
 
   async handleCallback(code: string, userId: string) {

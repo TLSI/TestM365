@@ -16,8 +16,8 @@ export class MicrosoftAuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get Microsoft OAuth authorization URL' })
   @Get('url')
-  getAuthUrl() {
-    return { url: this.msAuthService.getAuthorizationUrl() };
+  getAuthUrl(@CurrentUser() user: { id: string }) {
+    return { url: this.msAuthService.getAuthorizationUrl(user.id) };
   }
 
   @Public()
