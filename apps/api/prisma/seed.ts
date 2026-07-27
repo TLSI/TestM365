@@ -17,24 +17,25 @@ async function main() {
     },
   });
 
-  const client = await prisma.user.upsert({
-    where: { email: 'cliente@testm365.local' },
-    update: {},
-    create: {
-      email: 'cliente@testm365.local',
-      name: 'Cliente Demo',
-      password: hash,
-      role: 'CLIENT',
-    },
-  });
-
-  await prisma.client.upsert({
+  const acme = await prisma.client.upsert({
     where: { email: 'acme@example.com' },
     update: {},
     create: {
       name: 'ACME SL',
       email: 'acme@example.com',
       company: 'ACME SL',
+    },
+  });
+
+  const client = await prisma.user.upsert({
+    where: { email: 'cliente@testm365.local' },
+    update: { clientId: acme.id },
+    create: {
+      email: 'cliente@testm365.local',
+      name: 'Cliente Demo',
+      password: hash,
+      role: 'CLIENT',
+      clientId: acme.id,
     },
   });
 
